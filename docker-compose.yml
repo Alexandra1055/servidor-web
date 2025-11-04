@@ -1,0 +1,70 @@
+services:
+  proxy:
+    image: nginx:alpine
+    container_name: reverse-prox
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./reverse-prox/nginx/conf.d:/etc/nginx/conf.d:ro
+      - ./reverse-prox/certs:/etc/nginx/certs:ro
+    depends_on:
+      - llista-camisetes
+      - llibres_web
+      - llibres_phpmyadmin
+
+  llista-camisetes:
+    build:
+      context: ./Llista-Camisetes
+      dockerfile: Dockerfile
+    container_name: llista-camisetes
+    expose:
+      - "80"
+    ports:
+      - "81:80"
+
+
+  llibres_db:
+    image: mariadb:11
+    container_name: llibres_db
+    environment:
+      - MARIADB_ROOT_PASSWORD=secret
+      - MARIADB_DATABASE=llibres
+    volumes:
+      - db-llibres:/var/lib/mysql
+      - ./PHP/config/db/books.sql:/docker-entrypoint-initdb.d/books.sql:ro
+
+  
+  llibres_phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: llibres_phpmyadmin
+    environment:
+      - PMA_HOST=llibres_db
+      - PMA_USER=root
+      - PMA_PASSWORD=secret
+    expose:
+      - "80"
+    depends_on:
+      - llibres_db
+    ports:
+      - "8080:80"
+
+
+  llibres_web:
+    build:
+      context: ./PHP
+      dockerfile: config/Dockerfile
+    container_name: llibres_web
+    env_file:
+      - ./PHP/config/passwords
+    volumes:
+      - ./PHP/src:/var/www/html
+      - ./PHP/images:/var/www/html/images
+      - ./PHP/config/error_dev.ini:/usr/local/etc/php/conf.d/error_dev.ini:ro
+    expose:
+      - "80"
+    depends_on:
+      - llibres_db
+
+volumes:
+  db-llibres:
